@@ -215,6 +215,7 @@ All tables include a `user_id` column defaulting to `"default"`. This is hardcod
 - `avg_cost` REAL
 - `updated_at` TEXT (ISO timestamp)
 - UNIQUE constraint on `(user_id, ticker)`
+- When a sell reduces quantity to zero, the row is **deleted** (not zeroed out)
 
 **trades** — Trade history (append-only log)
 - `id` TEXT PRIMARY KEY (UUID)
@@ -290,7 +291,7 @@ There is an OPENROUTER_API_KEY in the .env file in the project root.
 When the user sends a chat message, the backend:
 
 1. Loads the user's current portfolio context (cash, positions with P&L, watchlist with live prices, total portfolio value)
-2. Loads recent conversation history from the `chat_messages` table
+2. Loads the last **10 messages** of conversation history from the `chat_messages` table
 3. Constructs a prompt with a system message, portfolio context, conversation history, and the user's new message
 4. Calls the LLM via LiteLLM → OpenRouter, requesting structured output, using the cerebras-inference skill
 5. Parses the complete structured JSON response
@@ -433,7 +434,7 @@ The container is designed to deploy to AWS App Runner, Render, or any container 
 - LLM: structured output parsing handles all valid schemas, graceful handling of malformed responses, trade validation within chat flow
 - API routes: correct status codes, response shapes, error handling
 
-**Frontend (React Testing Library or similar)**:
+**Frontend (Jest + React Testing Library)**:
 - Component rendering with mock data
 - Price flash animation triggers correctly on price changes
 - Watchlist CRUD operations
@@ -454,3 +455,65 @@ The container is designed to deploy to AWS App Runner, Render, or any container 
 - Portfolio visualization: heatmap renders with correct colors, P&L chart has data points
 - AI chat (mocked): send a message, receive a response, trade execution appears inline
 - SSE resilience: disconnect and verify reconnection
+
+---
+
+## 13. Doc Review — Questions, Clarifications & Simplification Opportunities
+
+*Added by doc-review agent on 2026-03-18. These are open questions and observations for the team to resolve before or during implementation.*
+
+---
+
+### Questions & Clarifications
+
+**Architecture**
+
+1. **SSE cadence vs. simulator cadence**: Section 6 says the simulator updates at ~500ms intervals AND the SSE stream pushes "at a regular cadence (~500ms)". Are these the same tick, or could the SSE stream poll the cache more frequently than the simulator produces updates? Clarifying whether SSE simply re-broadcasts on every cache write vs. running its own timer would prevent agent confusion.
+
+2. **Watchlist = streamed tickers?** Section 6 says the SSE stream covers "all tickers known to the system — in the single-user model this is equivalent to the user's watchlist." Does that mean adding a ticker to the watchlist immediately starts simulator/cache coverage for it? If yes, the backend needs to hot-reload the ticker set without restarting the background task — this should be spelled out explicitly.
+
+3. **Positions with zero quantity**: When a user sells all shares of a ticker, should the row be deleted from `positions`. The trades table is append-only and the P&L chart uses `portfolio_snapshots`, so deletion seems safe — but the plan doesn't state this, leaving agents to guess.
+
+4. **`portfolio_snapshots` timing**: The plan says snapshots are recorded "every 30 seconds and immediately after each trade." Who owns this background task — is it the same process as the market data background task, or a separate one? Should it be documented explicitly?
+
+5. **LLM `actions` field**: The `chat_messages.actions` column stores "trades executed, watchlist changes made" as JSON. Is this the raw structured output from the LLM, or only the subset that actually succeeded (post-validation)? If a trade is rejected (insufficient cash), does it appear in `actions`? This affects what the frontend displays as inline confirmations.
+
+6. **`daily change %` in the watchlist**: Section 10 (Frontend Layout) lists "daily change %" as a watchlist column. The simulator has no concept of a "day start" price — it just runs GBM continuously. Should daily change be calculated relative to the price at session start (process boot), or is this a simulated open price that needs to be seeded? This gap could cause a backend/frontend mismatch.
+
+7. **Ticker validation on add**: When the user or AI adds a ticker to the watchlist, is any validation performed (e.g., is it a known/valid symbol)? In simulator mode there's no external authority to validate against, so the answer may simply be "any string is accepted." That decision should be stated.
+
+8. **`LLM_MOCK` response shape**: Section 9 says mock mode returns "deterministic mock responses." What exactly does a mock response look like? Agents building the mock and agents writing E2E tests need to agree on a fixture. Consider committing a sample mock response JSON to `planning/` or `test/fixtures/`.
+
+**Database**
+
+9. **`users_profile` table name**: The table is named `users_profile` for consistency with `positions`, `trades`, `watchlist`. Minor, but agents will copy this name into code.
+
+10. **Fractional shares UX**: The plan permits fractional shares (`quantity REAL`). Does the trade bar UI accept decimal input? Does the AI chat accept "buy 0.5 shares of AAPL"? If yes, the frontend quantity field needs to allow decimals — worth stating explicitly.
+
+**LLM / Chat**
+
+11. **Conversation history length**: Section 9: A concrete limit last 10 messages should be specified.
+
+12. **System prompt storage**: Is the LLM system prompt hardcoded in the backend source, or configurable? If it's hardcoded, where does it live (a constant, a separate file)? Agents need to know where to find and edit it.
+
+13. **Error propagation from failed trades**: If the LLM requests a trade and it fails validation, Section 9 says "the error is included in the chat response." Does this mean the LLM is called a second time with the error, or does the backend synthesize an error message appended to the original `message`? The current schema doesn't have an `errors` field — clarify how this flows.
+
+**Testing**
+
+14. **Frontend unit test framework**: Section 12 says "React Testing Library or similar." Locking in a specific library before implementation starts avoids agents choosing incompatible tools. Recommend specifying Jest + React Testing Library explicitly.
+
+15. **E2E test "SSE resilience" scenario**: Forcing a disconnect in a Docker Compose test environment isn't trivial. How should this be simulated — kill the container briefly, use a proxy with fault injection, or mock the EventSource in the browser? This scenario may need more detail or could be deprioritized.
+
+---
+
+### Opportunities to Simplify
+
+| Area | Current Plan | Simpler Alternative | Trade-off |
+|------|-------------|---------------------|-----------|
+| **Portfolio snapshots** | Background task every 30s + after every trade | Only snapshot after trades; query positions on-demand for P&L chart | Removes background task complexity; P&L chart granularity degrades but is acceptable given simulated data |
+| **`chat_messages.actions` JSON** | Store executed actions inline in each message row | Store trades/watchlist changes only in their respective tables; join on `executed_at` timestamp | Removes denormalized JSON blob; slightly harder to reconstruct chat context but data is already in canonical tables |
+| **Sparklines from SSE** | Frontend accumulates SSE ticks in memory since page load | Seed sparkline data from a `/api/prices/history/{ticker}` endpoint that returns the last N cache snapshots | Eliminates cold-start empty sparklines; adds one endpoint but removes client-side accumulation logic |
+| **LLM mock fixture** | Underdefined | A single static JSON file at `test/fixtures/mock_llm_response.json` read by the backend when `LLM_MOCK=true` | Zero code complexity; easy to edit for test scenarios |
+| **`users_profile` table** | Separate table for cash balance | Add `cash_balance` as a column on a `users` table that consolidates any future user state | One fewer table concept; aligns naming with `user_id` references throughout |
+| **Watchlist ticker set hot-reload** | Implicit (not documented) | Explicitly have the market data background task read the watchlist from DB on each poll cycle | Simple, no event bus needed, acceptable latency for a ~500ms update loop |
+| **Daily change %** | Undefined for simulator | Track `session_open_price` in the price cache (first price seen per ticker at process start) and compute change against that | One extra field in the cache; clearly defined, no real-time data dependency |
