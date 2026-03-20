@@ -3,7 +3,7 @@
 from fastapi import APIRouter
 from pydantic import BaseModel
 
-from app.db import add_chat_message
+from app.db import add_chat_message, get_chat_history
 from app.llm import process_chat_message
 
 router = APIRouter(tags=["chat"])
@@ -11,6 +11,15 @@ router = APIRouter(tags=["chat"])
 
 class ChatRequest(BaseModel):
     message: str
+
+
+@router.get("/chat/history")
+def get_chat_history_endpoint():
+    """Return the chat message history for the default user.
+
+    Returns a list of messages with id, role, content, actions, and created_at.
+    """
+    return get_chat_history("default", limit=50)
 
 
 @router.post("/chat")

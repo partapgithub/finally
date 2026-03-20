@@ -233,7 +233,7 @@ def add_to_watchlist(user_id: str, ticker: str) -> dict:
     """Add ticker to watchlist.
 
     Returns {success: bool, error: str|None}.
-    Silently succeeds if ticker is already in watchlist (UNIQUE constraint).
+    Returns an error if ticker is already in watchlist (UNIQUE constraint).
     """
     conn = get_connection()
     try:
@@ -247,7 +247,7 @@ def add_to_watchlist(user_id: str, ticker: str) -> dict:
             return {"success": True, "error": None}
         except sqlite3.IntegrityError:
             # UNIQUE constraint — ticker already in watchlist
-            return {"success": True, "error": None}
+            return {"success": False, "error": f"Ticker '{ticker.upper()}' is already in the watchlist"}
     finally:
         conn.close()
 
@@ -272,14 +272,14 @@ def remove_from_watchlist(user_id: str, ticker: str) -> dict:
 def get_chat_history(user_id: str = "default", limit: int = 10) -> list:
     """Return last `limit` messages ordered by created_at ASC.
 
-    Each entry: {role, content, actions, created_at}
+    Each entry: {id, role, content, actions, created_at}
     actions is parsed from JSON string to dict (or None).
     """
     conn = get_connection()
     try:
         # Fetch last `limit` rows (most recent first), then reverse for chronological order
         rows = conn.execute(
-            """SELECT role, content, actions, created_at
+            """SELECT id, role, content, actions, created_at
                FROM chat_messages
                WHERE user_id = ?
                ORDER BY created_at DESC
@@ -297,6 +297,7 @@ def get_chat_history(user_id: str = "default", limit: int = 10) -> list:
                     actions = None
             messages.append(
                 {
+                    "id": r["id"],
                     "role": r["role"],
                     "content": r["content"],
                     "actions": actions,

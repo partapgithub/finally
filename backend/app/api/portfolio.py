@@ -110,7 +110,8 @@ def get_portfolio_endpoint():
                 "avg_cost": avg_cost,
                 "current_price": current_price,
                 "unrealized_pnl": unrealized_pnl,
-                "pnl_pct": pnl_pct,
+                "pnl_pct": pnl_pct,       # legacy field name kept for internal use
+                "pnl_percent": pnl_pct,   # matches frontend Position interface
             }
         )
 
