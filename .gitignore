@@ -210,3 +210,5 @@ db/finally.db-wal
 marimo/_static/
 marimo/_lsp/
 __marimo__/
+test/node_modules/
+test/test-results/
