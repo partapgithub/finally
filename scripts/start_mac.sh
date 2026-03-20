@@ -36,8 +36,13 @@ fi
 
 # Check if container is already running
 if docker ps --format '{{.Names}}' | grep -q "^${CONTAINER_NAME}$"; then
-  echo "FinAlly is already running at http://localhost:${PORT}"
-  exit 0
+  if [ "$FORCE_BUILD" = false ]; then
+    echo "FinAlly is already running at http://localhost:${PORT}"
+    exit 0
+  fi
+  echo "Stopping existing container..."
+  docker stop "${CONTAINER_NAME}"
+  docker rm "${CONTAINER_NAME}"
 fi
 
 # Remove stopped container with same name if it exists

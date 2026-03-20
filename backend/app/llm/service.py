@@ -151,15 +151,31 @@ def _call_llm(messages: list[dict]) -> dict:
         raise RuntimeError("litellm is not installed. Add it to pyproject.toml.") from exc
 
     api_key = os.environ.get("OPENROUTER_API_KEY", "")
-    response = litellm.completion(
-        model="openrouter/openai/gpt-oss-120b",
-        messages=messages,
-        api_base="https://openrouter.ai/api/v1",
-        api_key=api_key,
-        response_format={"type": "json_object"},
-        temperature=0.7,
-    )
-    content = response.choices[0].message.content
+
+    def _do_call(with_response_format: bool) -> str | None:
+        kwargs = dict(
+            model="openrouter/openai/gpt-oss-120b",
+            messages=messages,
+            api_base="https://openrouter.ai/api/v1",
+            api_key=api_key,
+            temperature=0.7,
+        )
+        if with_response_format:
+            kwargs["response_format"] = {"type": "json_object"}
+        response = litellm.completion(**kwargs)
+        return response.choices[0].message.content
+
+    # First attempt with response_format to encourage structured JSON output
+    content = _do_call(with_response_format=True)
+
+    # Some model/provider combos return null content with response_format — retry without it
+    if content is None:
+        logger.warning("LLM returned null content with response_format; retrying without it")
+        content = _do_call(with_response_format=False)
+
+    if content is None:
+        raise ValueError("LLM returned null content on both attempts")
+
     return json.loads(content)
 
 
@@ -197,9 +213,19 @@ def process_chat_message(user_message: str, user_id: str = "default") -> dict:
         history = []
         errors.append(f"Could not load chat history: {exc}")
 
+    def _is_valid_history_msg(m: dict) -> bool:
+        """Skip assistant messages that are plain-text errors (not JSON) — they confuse the model."""
+        if m["role"] != "assistant":
+            return True
+        try:
+            json.loads(m["content"])
+            return True
+        except (json.JSONDecodeError, TypeError):
+            return False
+
     messages: list[dict] = [
         {"role": "system", "content": SYSTEM_PROMPT},
-        *[{"role": m["role"], "content": m["content"]} for m in history],
+        *[{"role": m["role"], "content": m["content"]} for m in history if _is_valid_history_msg(m)],
         {"role": "user", "content": f"{portfolio_context}\n\nUser: {user_message}"},
     ]
 

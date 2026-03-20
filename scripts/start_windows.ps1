@@ -40,9 +40,16 @@ if (-not (Test-Path $envFile)) {
 
 # Check if container is already running
 $running = docker ps --format "{{.Names}}" 2>&1 | Where-Object { $_ -eq $CONTAINER_NAME }
-if ($running) {
+if ($running -and -not $Build) {
     Write-Host "FinAlly is already running at http://localhost:$PORT"
     exit 0
+}
+
+# Stop and remove existing container if running (needed for --build or env changes)
+if ($running) {
+    Write-Host "Stopping existing container..."
+    docker stop $CONTAINER_NAME | Out-Null
+    docker rm $CONTAINER_NAME | Out-Null
 }
 
 # Remove stopped container with same name if it exists

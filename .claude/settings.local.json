@@ -1,0 +1,32 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(xargs ls:*)",
+      "Bash(uv run:*)",
+      "Bash(npx create-next-app@14 frontend --typescript --tailwind --eslint --app --no-src-dir --import-alias \"@/*\" --use-npm)",
+      "Bash(.venv/Scripts/python -c \"from app.main import app; print\\(''app imported OK''\\); print\\(''routes:'', [r.path for r in app.routes]\\)\")",
+      "Bash(.venv/Scripts/python -m pytest tests/ -v --ignore=tests/llm)",
+      "Bash(chmod:*)",
+      "Bash(node -e \"const lc = require\\(''''lightweight-charts''''\\); console.log\\(Object.keys\\(lc\\).join\\(''''\\\\n''''\\)\\)\")",
+      "Bash(npm run:*)",
+      "Bash(npx next:*)",
+      "Bash(python -c \"from app.main import app; print\\(''''Import OK''''\\)\")",
+      "Bash(curl -s http://localhost:8000/api/portfolio)",
+      "Bash(python3 -m json.tool)",
+      "Bash(curl:*)",
+      "Bash(npx playwright:*)",
+      "Bash(BASE_URL=http://localhost:8000 npx playwright test specs/api.spec.ts --reporter=list)",
+      "Bash(cp:*)",
+      "Bash(tasklist)",
+      "Bash(BASE_URL=http://localhost:8000 npx playwright test specs/ui.spec.ts --reporter=list)",
+      "mcp__plugin_playwright_playwright__browser_navigate",
+      "Bash(xargs -I{} taskkill //PID {} //F)",
+      "Bash(git add:*)",
+      "mcp__plugin_playwright_playwright__browser_click",
+      "mcp__plugin_playwright_playwright__browser_type",
+      "mcp__plugin_playwright_playwright__browser_take_screenshot",
+      "Bash(docker rm:*)",
+      "Bash(git commit:*)"
+    ]
+  }
+}

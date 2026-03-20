@@ -51,8 +51,13 @@ export default function Home() {
 
   return (
     <div
-      className="flex flex-col"
-      style={{ height: '100vh', overflow: 'hidden', backgroundColor: '#0d1117' }}
+      style={{
+        height: '100vh',
+        overflow: 'hidden',
+        backgroundColor: '#0d1117',
+        display: 'grid',
+        gridTemplateRows: 'auto 1fr',
+      }}
     >
       {/* Header */}
       <Header
@@ -63,10 +68,10 @@ export default function Home() {
 
       {/* Main Grid */}
       <div
-        className="flex-1 grid overflow-hidden"
+        className="grid overflow-hidden"
         style={{
           gridTemplateColumns: '280px 1fr 340px',
-          minHeight: 0,
+          gridTemplateRows: '100%',
         }}
       >
         {/* Left: Watchlist */}

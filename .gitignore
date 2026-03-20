@@ -212,3 +212,4 @@ marimo/_lsp/
 __marimo__/
 test/node_modules/
 test/test-results/
+*.png
