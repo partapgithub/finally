@@ -1,0 +1,22 @@
+# Dependencies
+**/node_modules
+frontend/.next
+
+# Python
+**/__pycache__
+**/*.pyc
+backend/.venv
+
+# Database
+db/finally.db
+db/finally.db-wal
+db/finally.db-shm
+
+# Build artifacts
+frontend/out
+backend/static
+
+# Dev files
+.env
+.claude
+*.log

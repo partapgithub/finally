@@ -191,6 +191,11 @@ cython_debug/
 # Ruff stuff:
 .ruff_cache/
 
+# FinAlly runtime database (persisted via Docker volume)
+db/finally.db
+db/finally.db-shm
+db/finally.db-wal
+
 # PyPI configuration file
 .pypirc
 
@@ -205,3 +210,6 @@ cython_debug/
 marimo/_static/
 marimo/_lsp/
 __marimo__/
+test/node_modules/
+test/test-results/
+*.png
