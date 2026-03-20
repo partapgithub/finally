@@ -85,7 +85,7 @@ export default function Home() {
           style={{ minHeight: 0 }}
         >
           {/* Main Price Chart */}
-          <div style={{ height: '280px', flexShrink: 0 }}>
+          <div style={{ height: '220px', flexShrink: 0 }}>
             <MainChart
               ticker={selectedTicker}
               history={selectedTicker ? (history[selectedTicker] ?? []) : []}
@@ -117,7 +117,7 @@ export default function Home() {
           </div>
 
           {/* Tab Content */}
-          <div style={{ height: '180px', flexShrink: 0 }}>
+          <div style={{ height: '140px', flexShrink: 0 }}>
             {centerTab === 'heatmap' ? (
               <PortfolioHeatmap
                 positions={portfolio?.positions ?? []}

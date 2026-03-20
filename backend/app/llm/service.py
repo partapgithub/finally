@@ -53,8 +53,8 @@ MOCK_RESPONSE = {
         "and is ready to trade. I can help you analyze stocks, suggest trades, or manage your "
         "watchlist. What would you like to do?"
     ),
-    "trades_executed": [],
-    "watchlist_changes_made": [],
+    "trades": [],
+    "watchlist_changes": [],
     "errors": [],
 }
 
@@ -211,17 +211,24 @@ def process_chat_message(user_message: str, user_id: str = "default") -> dict:
         errors.append(f"LLM returned invalid JSON: {exc}")
         return {
             "message": "I encountered an error processing your request. Please try again.",
-            "trades_executed": [],
-            "watchlist_changes_made": [],
+            "trades": [],
+            "watchlist_changes": [],
             "errors": errors,
         }
     except Exception as exc:
         logger.exception("LLM call failed")
+        err_str = str(exc)
+        if "Insufficient credits" in err_str or "credits" in err_str.lower():
+            user_msg = "AI service unavailable: the OpenRouter account has no credits. Add credits at openrouter.ai or set LLM_MOCK=true to use demo mode."
+        elif "APIError" in err_str or "api" in err_str.lower():
+            user_msg = "AI service connection error. Check that OPENROUTER_API_KEY is set correctly."
+        else:
+            user_msg = "I encountered an error connecting to the AI service. Please try again."
         errors.append(f"LLM call failed: {exc}")
         return {
-            "message": "I encountered an error connecting to the AI service. Please try again.",
-            "trades_executed": [],
-            "watchlist_changes_made": [],
+            "message": user_msg,
+            "trades": [],
+            "watchlist_changes": [],
             "errors": errors,
         }
 
@@ -317,10 +324,10 @@ def process_chat_message(user_message: str, user_id: str = "default") -> dict:
             {"ticker": ticker, "action": action, "success": result.get("success", False)}
         )
 
-    # Step 5: Return
+    # Step 5: Return — use "trades" / "watchlist_changes" to match the frontend schema
     return {
         "message": parsed.get("message", "I encountered an error. Please try again."),
-        "trades_executed": trades_executed,
-        "watchlist_changes_made": watchlist_changes_made,
+        "trades": trades_executed,
+        "watchlist_changes": watchlist_changes_made,
         "errors": errors,
     }

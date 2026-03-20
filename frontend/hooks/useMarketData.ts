@@ -36,46 +36,55 @@ export function useMarketData(): MarketDataState {
   const handleMessage = useCallback((event: MessageEvent) => {
     try {
       const data = JSON.parse(event.data);
-      const { ticker, price, previous_price, change_percent, direction, timestamp } = data;
 
-      if (!ticker || price === undefined) return;
+      // Backend sends a dict of all tickers: {"AAPL": {ticker, price, ...}, "AMZN": {...}}
+      // Normalise to an array so we can handle both formats.
+      const items: Array<{
+        ticker: string;
+        price: number;
+        previous_price?: number;
+        change_percent?: number;
+        direction?: string;
+        timestamp?: number | string;
+      }> = data && typeof data === 'object' && !('ticker' in data)
+        ? Object.values(data)
+        : [data];
 
-      const priceData: PriceData = {
-        ticker,
-        price,
-        previousPrice: previous_price ?? price,
-        changePercent: change_percent ?? 0,
-        direction: direction ?? 'neutral',
-        timestamp: timestamp ?? new Date().toISOString(),
-      };
+      for (const item of items) {
+        const { ticker, price, previous_price, change_percent, direction, timestamp } = item;
+        if (!ticker || price === undefined) continue;
 
-      // Update prices
-      setPrices(prev => ({ ...prev, [ticker]: priceData }));
+        const priceData: PriceData = {
+          ticker,
+          price,
+          previousPrice: previous_price ?? price,
+          changePercent: change_percent ?? 0,
+          direction: (direction as 'up' | 'down' | 'neutral') ?? 'neutral',
+          timestamp: String(timestamp ?? new Date().toISOString()),
+        };
 
-      // Update history
-      const timeValue = Math.floor(new Date(timestamp ?? Date.now()).getTime() / 1000);
-      setHistory(prev => {
-        const existing = prev[ticker] ?? [];
-        const newPoint: SparklinePoint = { time: timeValue, value: price };
-        // Avoid duplicate timestamps
-        const filtered = existing.filter(p => p.time !== timeValue);
-        const updated = [...filtered, newPoint].slice(-MAX_HISTORY_POINTS);
-        return { ...prev, [ticker]: updated };
-      });
+        // Update prices
+        setPrices(prev => ({ ...prev, [ticker]: priceData }));
 
-      // Set flash state
-      if (direction !== 'neutral') {
-        setFlashState(prev => ({ ...prev, [ticker]: direction as 'up' | 'down' }));
+        // Update history — use epoch seconds for lightweight-charts
+        const ts = typeof timestamp === 'number' ? timestamp : Date.now() / 1000;
+        const timeValue = Math.floor(ts);
+        setHistory(prev => {
+          const existing = prev[ticker] ?? [];
+          const newPoint: SparklinePoint = { time: timeValue, value: price };
+          const filtered = existing.filter(p => p.time !== timeValue);
+          const updated = [...filtered, newPoint].slice(-MAX_HISTORY_POINTS);
+          return { ...prev, [ticker]: updated };
+        });
 
-        // Clear existing timer
-        if (flashTimersRef.current[ticker]) {
-          clearTimeout(flashTimersRef.current[ticker]);
+        // Flash state
+        if (direction && direction !== 'neutral' && direction !== 'flat') {
+          setFlashState(prev => ({ ...prev, [ticker]: direction as 'up' | 'down' }));
+          if (flashTimersRef.current[ticker]) clearTimeout(flashTimersRef.current[ticker]);
+          flashTimersRef.current[ticker] = setTimeout(() => {
+            setFlashState(prev => ({ ...prev, [ticker]: null }));
+          }, 600);
         }
-
-        // Clear flash after 600ms
-        flashTimersRef.current[ticker] = setTimeout(() => {
-          setFlashState(prev => ({ ...prev, [ticker]: null }));
-        }, 600);
       }
     } catch {
       // Ignore parse errors

@@ -43,10 +43,10 @@ def chat(request: ChatRequest):
     # Process with LLM (and auto-execute any trades/watchlist changes)
     result = process_chat_message(request.message)
 
-    # Save assistant response with executed actions
+    # Save assistant response with executed actions (use same keys as response)
     actions = {
-        "trades_executed": result["trades_executed"],
-        "watchlist_changes_made": result["watchlist_changes_made"],
+        "trades": result["trades"],
+        "watchlist_changes": result["watchlist_changes"],
     }
     add_chat_message("default", "assistant", result["message"], actions)
 
