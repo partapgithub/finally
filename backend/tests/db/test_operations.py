@@ -305,12 +305,13 @@ class TestWatchlist(_BaseDbTest):
         tickers = get_watchlist("default")
         self.assertIn("PYPL", tickers)
 
-    def test_add_duplicate_ticker_is_idempotent(self):
-        """Adding an existing ticker should not raise and should report success."""
+    def test_add_duplicate_ticker_returns_error(self):
+        """Adding an existing ticker should return success=False with an error message."""
         from app.db import add_to_watchlist, get_watchlist
 
         result = add_to_watchlist("default", "AAPL")
-        self.assertTrue(result["success"])
+        self.assertFalse(result["success"])
+        self.assertIsNotNone(result.get("error"))
         # Count should not increase
         tickers = get_watchlist("default")
         self.assertEqual(tickers.count("AAPL"), 1)
