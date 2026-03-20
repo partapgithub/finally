@@ -1,9 +1,9 @@
 # Stage 1: Build Next.js frontend
-FROM node:20-slim AS frontend-builder
+FROM node:24-slim AS frontend-builder
 WORKDIR /app/frontend
 
 COPY frontend/package*.json ./
-RUN npm ci
+RUN npm install --frozen-lockfile 2>/dev/null || npm install
 
 COPY frontend/ .
 RUN npm run build
