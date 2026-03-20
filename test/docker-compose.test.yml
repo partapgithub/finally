@@ -1,0 +1,27 @@
+services:
+  app:
+    build:
+      context: ..
+      dockerfile: Dockerfile
+    environment:
+      - LLM_MOCK=true
+      - MASSIVE_API_KEY=
+      - OPENROUTER_API_KEY=mock-key-for-testing
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/api/health"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+      start_period: 15s
+
+  playwright:
+    image: mcr.microsoft.com/playwright:v1.44.0-jammy
+    depends_on:
+      app:
+        condition: service_healthy
+    working_dir: /tests
+    volumes:
+      - ../test:/tests
+    environment:
+      - BASE_URL=http://app:8000
+    command: npx playwright test

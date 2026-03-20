@@ -191,6 +191,11 @@ cython_debug/
 # Ruff stuff:
 .ruff_cache/
 
+# FinAlly runtime database (persisted via Docker volume)
+db/finally.db
+db/finally.db-shm
+db/finally.db-wal
+
 # PyPI configuration file
 .pypirc
 
